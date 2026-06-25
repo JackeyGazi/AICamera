@@ -32,17 +32,24 @@ const STYLE_PRESETS = {
   }
 };
 
-function sendJSON(resp, statusCode, data) {
-  resp.setStatusCode(statusCode);
-  resp.setHeader('Content-Type', 'application/json');
-  resp.send(JSON.stringify(data));
+function jsonResponse(statusCode, data) {
+  return {
+    statusCode: statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, x-app-secret',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    },
+    body: JSON.stringify(data)
+  };
 }
 
-function parseBody(req) {
+function getBody(req) {
   if (!req.body) return {};
   if (typeof req.body === 'object') return req.body;
   try {
-    return JSON.parse(req.body);
+    return JSON.parse(req.body.toString());
   } catch (e) {
     return {};
   }
@@ -50,30 +57,33 @@ function parseBody(req) {
 
 module.exports.handler = async (req, resp, context) => {
   try {
-    if (req.method !== 'POST') {
-      sendJSON(resp, 405, { error: 'Method not allowed' });
-      return;
+    const method = req.method || req.httpMethod || 'GET';
+    const path = req.path || req.url || '/';
+    const headers = req.headers || {};
+    const isGenerate = path.includes('/generate');
+
+    if (method === 'OPTIONS' || !isGenerate) {
+      return jsonResponse(200, { status: 'ok', method, path });
     }
 
-    const headers = req.headers || {};
+    if (method !== 'POST') {
+      return jsonResponse(405, { error: 'Method not allowed' });
+    }
 
     if (APP_SECRET && headers['x-app-secret'] !== APP_SECRET) {
-      sendJSON(resp, 401, { error: 'Unauthorized' });
-      return;
+      return jsonResponse(401, { error: 'Unauthorized' });
     }
 
-    const body = parseBody(req);
+    const body = getBody(req);
     const { imageBase64, styleId } = body;
 
     if (!imageBase64 || !styleId) {
-      sendJSON(resp, 400, { error: 'Missing imageBase64 or styleId' });
-      return;
+      return jsonResponse(400, { error: 'Missing imageBase64 or styleId' });
     }
 
     const style = STYLE_PRESETS[styleId];
     if (!style) {
-      sendJSON(resp, 400, { error: 'Invalid styleId' });
-      return;
+      return jsonResponse(400, { error: 'Invalid styleId' });
     }
 
     const imageData = imageBase64.startsWith('data:image')
@@ -95,28 +105,26 @@ module.exports.handler = async (req, resp, context) => {
         'Authorization': `Bearer ${ARK_API_KEY}`
       },
       body: JSON.stringify(requestBody),
-      timeout: 60000
+      timeout: 120000
     });
 
     const data = await response.json();
 
     if (!response.ok) {
       console.error('ARK API Error:', JSON.stringify(data));
-      sendJSON(resp, response.status, {
+      return jsonResponse(response.status, {
         error: data.error?.message || 'Generation failed',
         details: data
       });
-      return;
     }
 
     if (!data.data || !data.data[0]) {
-      sendJSON(resp, 500, { error: 'No image generated' });
-      return;
+      return jsonResponse(500, { error: 'No image generated' });
     }
 
     const generatedImage = data.data[0].b64_json;
 
-    sendJSON(resp, 200, {
+    return jsonResponse(200, {
       success: true,
       imageBase64: generatedImage,
       style: styleId
@@ -124,6 +132,6 @@ module.exports.handler = async (req, resp, context) => {
 
   } catch (error) {
     console.error('Server error:', error);
-    sendJSON(resp, 500, { error: 'Internal server error' });
+    return jsonResponse(500, { error: 'Internal server error' });
   }
 };
