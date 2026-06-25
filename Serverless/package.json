@@ -1,0 +1,9 @@
+{
+  "name": "ai-camera-serverless",
+  "version": "1.0.0",
+  "description": "AI Camera Serverless Proxy for Jimeng (Seedream) API",
+  "main": "api/generate.js",
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
