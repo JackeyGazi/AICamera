@@ -1,0 +1,9 @@
+{
+  "name": "ai-camera-aliyun-fc",
+  "version": "1.0.0",
+  "description": "AI Camera Aliyun Function Compute - Jimeng API Proxy",
+  "main": "index.js",
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
