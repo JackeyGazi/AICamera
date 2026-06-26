@@ -1,32 +1,31 @@
-import SwiftUI
+import Foundation
 import Combine
+import SwiftUI
 
-class AppNavigation: ObservableObject {
-    @Published var currentPage: AppPage = .home
-    
-    enum AppPage: Hashable {
-        case home
-        case styleSelection
-        case generating
-        case result
-        case history
+enum AppRoute: Hashable {
+    case home
+    case styleSelection
+    case generating
+    case result
+    case history
+}
+
+final class AppNavigation: ObservableObject {
+    @Published var currentRoute: AppRoute = .home
+
+    func navigate(to route: AppRoute) {
+        withAnimation(.easeInOut(duration: 0.3)) {
+            currentRoute = route
+        }
     }
-    
-    func navigate(to page: AppPage) {
-        currentPage = page
-    }
-    
+
     func goBack() {
-        switch currentPage {
-        case .styleSelection:
-            currentPage = .home
-        case .generating:
-            currentPage = .styleSelection
-        case .result:
-            currentPage = .home
-        case .history:
-            currentPage = .home
-        case .home:
+        switch currentRoute {
+        case .styleSelection, .history:
+            navigate(to: .home)
+        case .generating, .result:
+            navigate(to: .styleSelection)
+        default:
             break
         }
     }

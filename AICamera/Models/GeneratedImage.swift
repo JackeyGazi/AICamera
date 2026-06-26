@@ -3,16 +3,9 @@ import UIKit
 
 struct GeneratedImage: Identifiable, Equatable {
     let id: String
-    let originalImageData: Data
-    let generatedImageData: Data
-    let styleTemplate: StyleTemplate
+    let originalImage: UIImage
+    let generatedImage: UIImage
+    let styleName: String
     let createdAt: Date
-    
-    var originalImage: UIImage? {
-        UIImage(data: originalImageData)
-    }
-    
-    var generatedImage: UIImage? {
-        UIImage(data: generatedImageData)
-    }
+    var displayName: String = ""
 }

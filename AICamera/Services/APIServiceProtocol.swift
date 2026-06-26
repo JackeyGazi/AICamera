@@ -1,12 +1,8 @@
 import Foundation
 import UIKit
+import Combine
 
-protocol AIServiceProtocol {
-    func fetchStyleTemplates(completion: @escaping (Result<[StyleTemplate], Error>) -> Void)
-    func generateImage(
-        originalImage: UIImage,
-        style: StyleTemplate,
-        completion: @escaping (Result<GeneratedImage, Error>) -> Void
-    )
-    func fetchHistory(completion: @escaping (Result<[GeneratedImage], Error>) -> Void)
+protocol APIServiceProtocol {
+    func fetchStyleTemplates() -> AnyPublisher<[StyleTemplate], Error>
+    func generateImage(image: UIImage, styleId: String) -> AnyPublisher<UIImage, Error>
 }

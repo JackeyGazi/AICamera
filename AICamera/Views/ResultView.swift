@@ -3,210 +3,127 @@ import SwiftUI
 struct ResultView: View {
     @EnvironmentObject var appNavigation: AppNavigation
     @EnvironmentObject var generationViewModel: GenerationViewModel
-    @EnvironmentObject var historyViewModel: HistoryViewModel
-    @State private var showingSaveAlert = false
-    @State private var currentShowingOriginal = false
-    
+    @State private var showOriginal = false
+    @State private var showSaveAlert = false
+
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ZStack {
-                Color(UIColor.systemBackground)
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    headerView
-                    
-                    if let generated = generationViewModel.generatedImage {
-                        imageComparisonView(generated)
-                        
-                        styleInfoView(generated)
-                    }
-                    
-                    Spacer()
-                    
-                    actionButtons
-                }
-            }
-            .navigationBarHidden(true)
-            .alert("图片已保存", isPresented: $showingSaveAlert) {
-                Button("确定", role: .cancel) {}
-            } message: {
-                Text("图片已保存到您的相册")
-            }
-            .onAppear {
-                if let generated = generationViewModel.generatedImage {
-                    historyViewModel.addToHistory(generated)
-                }
-            }
-        }
-    }
-    
-    private var headerView: some View {
-        HStack {
-            Button(action: {
-                generationViewModel.reset()
-                appNavigation.navigate(to: .home)
-            }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.primary)
-                    .frame(width: 40, height: 40)
-            }
-            
-            Spacer()
-            
-            Text("生成结果")
-                .font(.system(size: 18, weight: .semibold))
-            
-            Spacer()
-            
-            Color.clear
-                .frame(width: 40, height: 40)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-    }
-    
-    private func imageComparisonView(_ generated: GeneratedImage) -> some View {
-        VStack(spacing: 16) {
-            ZStack {
-                if let image = currentShowingOriginal ? generated.originalImage : generated.generatedImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxHeight: 350)
-                        .cornerRadius(16)
-                        .shadow(radius: 10)
-                }
-                
-                VStack {
-                    Spacer()
-                    HStack {
+                Color(UIColor.systemBackground).ignoresSafeArea()
+
+                VStack(spacing: 20) {
+                    if let original = generationViewModel.selectedImage,
+                       let generated = generationViewModel.generatedImage {
+                        VStack(spacing: 16) {
+                            Text(showOriginal ? "原图" : "效果图")
+                                .font(.headline)
+                                .foregroundColor(.secondary)
+
+                            ZStack {
+                                Image(uiImage: showOriginal ? original : generated)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(maxHeight: UIScreen.main.bounds.height * 0.5)
+                                    .cornerRadius(20)
+                                    .shadow(radius: 10)
+                                    .onTapGesture {
+                                        withAnimation(.easeInOut(duration: 0.3)) {
+                                            showOriginal.toggle()
+                                        }
+                                    }
+                            }
+
+                            Text("点击图片切换查看")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.top, 20)
+
+                        if let style = generationViewModel.selectedStyle {
+                            Text("风格：\(style.name)")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
                         Spacer()
-                        Text(currentShowingOriginal ? "原图" : "AI 生成")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.black.opacity(0.6))
-                            .cornerRadius(12)
-                            .padding(12)
+
+                        VStack(spacing: 12) {
+                            HStack(spacing: 16) {
+                                Button(action: {
+                                    saveImage()
+                                }) {
+                                    Label("保存", systemImage: "square.and.arrow.down")
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 50)
+                                        .background(Color.purple.opacity(0.1))
+                                        .foregroundColor(.purple)
+                                        .cornerRadius(16)
+                                }
+
+                                Button(action: {
+                                    shareImage()
+                                }) {
+                                    Label("分享", systemImage: "square.and.arrow.up")
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 50)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(16)
+                                }
+                            }
+
+                            Button(action: {
+                                generationViewModel.reset()
+                                appNavigation.navigate(to: .home)
+                            }) {
+                                Text("再来一张")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                                    .background(
+                                        LinearGradient(
+                                            gradient: Gradient(colors: [Color.purple, Color.blue]),
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .foregroundColor(.white)
+                                    .cornerRadius(26)
+                                    .shadow(color: .purple.opacity(0.3), radius: 10, x: 0, y: 5)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 30)
                     }
                 }
             }
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    currentShowingOriginal.toggle()
-                }
-            }
-            
-            toggleHint
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 8)
-    }
-    
-    private var toggleHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "hand.tap")
-            Text("点击图片切换原图/效果图")
-        }
-        .font(.system(size: 13))
-        .foregroundColor(.secondary)
-    }
-    
-    private func styleInfoView(_ generated: GeneratedImage) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(generated.styleTemplate.name)
-                    .font(.system(size: 18, weight: .semibold))
-                Text(generated.styleTemplate.description)
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
-    }
-    
-    private var actionButtons: some View {
-        VStack(spacing: 14) {
-            Button(action: {
-                saveImage()
-            }) {
-                HStack {
-                    Image(systemName: "square.and.arrow.down")
-                    Text("保存到相册")
-                        .font(.system(size: 16, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [.purple, .blue]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .foregroundColor(.white)
-                .cornerRadius(26)
-            }
-            
-            HStack(spacing: 14) {
-                Button(action: {
-                    shareImage()
+            .navigationBarTitle("生成结果", displayMode: .inline)
+            .navigationBarItems(
+                leading: Button(action: {
+                    appNavigation.goBack()
                 }) {
-                    HStack {
-                        Image(systemName: "square.and.arrow.up")
-                        Text("分享")
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .foregroundColor(.primary)
-                    .cornerRadius(25)
+                    Image(systemName: "chevron.left")
+                        .foregroundColor(.primary)
                 }
-                
-                Button(action: {
-                    generationViewModel.reset()
-                    appNavigation.navigate(to: .home)
-                }) {
-                    HStack {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("再来一张")
-                            .font(.system(size: 16, weight: .medium))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color(UIColor.secondarySystemBackground))
-                    .foregroundColor(.primary)
-                    .cornerRadius(25)
-                }
+            )
+            .alert("保存成功", isPresented: $showSaveAlert) {
+                Button("确定", role: .cancel) { }
+            } message: {
+                Text("图片已保存到相册")
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 24)
     }
-    
+
     private func saveImage() {
-        guard let generated = generationViewModel.generatedImage,
-              let image = generated.generatedImage else { return }
-        
+        guard let image = generationViewModel.generatedImage else { return }
         UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-        showingSaveAlert = true
+        showSaveAlert = true
     }
-    
+
     private func shareImage() {
-        guard let generated = generationViewModel.generatedImage,
-              let image = generated.generatedImage else { return }
-        
-        let activityVC = UIActivityViewController(
-            activityItems: [image],
-            applicationActivities: nil
-        )
-        
+        guard let image = generationViewModel.generatedImage else { return }
+        let activityVC = UIActivityViewController(activityItems: [image], applicationActivities: nil)
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootVC = windowScene.windows.first?.rootViewController {
             rootVC.present(activityVC, animated: true)

@@ -1,169 +1,195 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Image Picker Source (Identifiable for .sheet(item:))
+
+struct ImagePickerSource: Identifiable {
+    let id = UUID()
+    let sourceType: UIImagePickerController.SourceType
+}
+
+// MARK: - HomeView
+
 struct HomeView: View {
     @EnvironmentObject var appNavigation: AppNavigation
     @EnvironmentObject var generationViewModel: GenerationViewModel
-    @State private var showCamera = false
-    @State private var showPhotoLibrary = false
-    
+    @State private var pickerSource: ImagePickerSource?
+    @State private var showStylePreview = false
+
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ZStack {
                 LinearGradient(
-                    gradient: Gradient(colors: [Color.purple.opacity(0.6), Color.blue.opacity(0.6)]),
+                    gradient: Gradient(colors: [Color.purple, Color.blue]),
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
-                
+
                 VStack(spacing: 40) {
                     Spacer()
-                    
-                    headerView
-                    
+
+                    VStack(spacing: 12) {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 70))
+                            .foregroundColor(.white)
+
+                        Text("AI Camera")
+                            .font(.largeTitle)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+
+                        Text("用 AI 创造独特风格的你")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+
                     Spacer()
-                    
-                    actionButtons
-                    
+
+                    VStack(spacing: 20) {
+                        Button {
+                            pickerSource = ImagePickerSource(sourceType: .camera)
+                        } label: {
+                            HStack {
+                                Image(systemName: "camera.fill")
+                                    .font(.title2)
+                                Text("拍照")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color.white)
+                            .foregroundColor(.purple)
+                            .cornerRadius(28)
+                            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                        }
+
+                        Button {
+                            pickerSource = ImagePickerSource(sourceType: .photoLibrary)
+                        } label: {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                    .font(.title2)
+                                Text("从相册选择")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(Color.white.opacity(0.2))
+                            .foregroundColor(.white)
+                            .cornerRadius(28)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 28)
+                                    .stroke(Color.white.opacity(0.5), lineWidth: 1)
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 40)
+
+                    Button {
+                        appNavigation.navigate(to: .history)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock.arrow.circlepath")
+                            Text("历史记录")
+                        }
+                        .foregroundColor(.white.opacity(0.9))
+                        .padding(.top, 10)
+                    }
+
+                    Button {
+                        showStylePreview = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "sparkles")
+                            Text("查看预设风格")
+                        }
+                        .foregroundColor(.white.opacity(0.7))
+                        .font(.caption)
+                        .padding(.top, 4)
+                    }
+
                     Spacer()
-                    
-                    historyButton
                 }
-                .padding(.horizontal, 24)
             }
-            .sheet(isPresented: $showCamera) {
-                ImagePicker(sourceType: .camera) { image in
-                    handleImageSelected(image)
+            .navigationBarHidden(true)
+            .sheet(item: $pickerSource) { source in
+                ImagePicker(sourceType: source.sourceType) { image in
+                    generationViewModel.selectImage(image)
+                    appNavigation.navigate(to: .styleSelection)
                 }
                 .ignoresSafeArea()
             }
-            .sheet(isPresented: $showPhotoLibrary) {
-                ImagePicker(sourceType: .photoLibrary) { image in
-                    handleImageSelected(image)
+            .sheet(isPresented: $showStylePreview) {
+                StylePreviewSheet(styles: generationViewModel.styleTemplates)
+            }
+        }
+    }
+}
+
+// MARK: - Style Preview Sheet
+
+struct StylePreviewSheet: View {
+    let styles: [StyleTemplate]
+    @Environment(\.dismiss) var dismiss
+
+    let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(styles) { style in
+                        StyleCard(style: style, isSelected: false)
+                    }
                 }
+                .padding(16)
             }
+            .navigationBarTitle("预设风格", displayMode: .inline)
+            .navigationBarItems(trailing: Button("关闭") { dismiss() })
         }
-    }
-    
-    private var headerView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "camera.aperture")
-                .font(.system(size: 80))
-                .foregroundColor(.white)
-                .shadow(radius: 10)
-            
-            Text("AI Camera")
-                .font(.system(size: 40, weight: .bold))
-                .foregroundColor(.white)
-            
-            Text("用 AI 重新定义你的照片")
-                .font(.system(size: 18))
-                .foregroundColor(.white.opacity(0.8))
-        }
-    }
-    
-    private var actionButtons: some View {
-        VStack(spacing: 20) {
-            Button(action: {
-                showCamera = true
-            }) {
-                HStack {
-                    Image(systemName: "camera.fill")
-                        .font(.title2)
-                    Text("拍照")
-                        .font(.title3.weight(.semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color.white)
-                .foregroundColor(.purple)
-                .cornerRadius(28)
-                .shadow(radius: 10)
-            }
-            
-            Button(action: {
-                showPhotoLibrary = true
-            }) {
-                HStack {
-                    Image(systemName: "photo.on.rectangle")
-                        .font(.title2)
-                    Text("从相册选择")
-                        .font(.title3.weight(.semibold))
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 56)
-                .background(Color.white.opacity(0.2))
-                .foregroundColor(.white)
-                .cornerRadius(28)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(Color.white.opacity(0.5), lineWidth: 1)
-                )
-            }
-        }
-    }
-    
-    private var historyButton: some View {
-        Button(action: {
-            appNavigation.navigate(to: .history)
-        }) {
-            HStack(spacing: 8) {
-                Image(systemName: "clock.arrow.circlepath")
-                Text("历史记录")
-            }
-            .font(.system(size: 16, weight: .medium))
-            .foregroundColor(.white.opacity(0.9))
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(Color.white.opacity(0.15))
-            .cornerRadius(20)
-        }
-    }
-    
-    private func handleImageSelected(_ image: UIImage) {
-        generationViewModel.setOriginalImage(image)
-        appNavigation.navigate(to: .styleSelection)
     }
 }
 
 struct ImagePicker: UIViewControllerRepresentable {
     let sourceType: UIImagePickerController.SourceType
     let onImagePicked: (UIImage) -> Void
-    @Environment(\.presentationMode) private var presentationMode
-    
+    @Environment(\.presentationMode) var presentationMode
+
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
         picker.delegate = context.coordinator
-        picker.allowsEditing = true
+        picker.allowsEditing = false
         return picker
     }
-    
+
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-    
+
     class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
         let parent: ImagePicker
-        
+
         init(_ parent: ImagePicker) {
             self.parent = parent
         }
-        
-        func imagePickerController(
-            _ picker: UIImagePickerController,
-            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
-        ) {
-            let image = (info[.editedImage] as? UIImage) ?? (info[.originalImage] as? UIImage)
-            if let image = image {
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            if let image = info[.originalImage] as? UIImage {
                 parent.onImagePicked(image)
             }
             parent.presentationMode.wrappedValue.dismiss()
         }
-        
+
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             parent.presentationMode.wrappedValue.dismiss()
         }
